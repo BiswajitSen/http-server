@@ -11,27 +11,23 @@ const RESPONSES = new Map([
   ['/echo', { ...HTTP_STATUS.OK, details: 'echo' }],
 ]);
 
-const isInvalidProtocol = (protocol) => protocol.trim().toUpperCase() !== 'HTTP/1.1';
-const isInvalidMethod = (method) => method.trim() !== 'GET';
-const isInvalidUri = (uri) => !RESPONSES.has(uri);
-
 const createResponse = (statusCode, status, details) => ({ statusCode, status, details });
 
-const createInvalidMethodResponse = () =>
+const invalidMethod = () =>
   createResponse(
     HTTP_STATUS.METHOD_NOT_ALLOWED.statusCode,
     HTTP_STATUS.METHOD_NOT_ALLOWED.status,
     'Method not allowed'
   );
 
-const createInvalidProtocolResponse = () =>
+const badRequest = () =>
   createResponse(
     HTTP_STATUS.BAD_REQUEST.statusCode,
     HTTP_STATUS.BAD_REQUEST.status,
     'bad request'
   );
 
-const createInvalidUriResponse = (uri) =>
+const invalidUri = (uri) =>
   createResponse(
     HTTP_STATUS.NOT_FOUND.statusCode,
     HTTP_STATUS.NOT_FOUND.status,
@@ -41,39 +37,66 @@ const createInvalidUriResponse = (uri) =>
 const getUriPathComponents = (uri) => uri.split('/').slice(2);
 const hasPathComponent = (uri) => getUriPathComponents(uri).length > 0;
 
-const createHasChildResponse = (uri) =>
+const pathComponentsArePresent = (uri) =>
   createResponse(
     HTTP_STATUS.OK.statusCode,
     HTTP_STATUS.OK.status,
-    getUriPathComponents(uri).join('')
+    getUriPathComponents(uri).join('/')
   );
 
-const createResponseForUri = (action, uri, protocol) => {
-  if (isInvalidProtocol(protocol)) return createInvalidProtocolResponse();
-  if (isInvalidMethod(action)) return createInvalidMethodResponse();
-  if (hasPathComponent(uri)) return createHasChildResponse(uri);
-  return isInvalidUri(uri) ? createInvalidUriResponse(uri) : RESPONSES.get(uri);
+const getTimeStamp = () => {
+  const date = new Date();
+  return `date: ${date.toGMTString()}`;
 };
 
-const handleRequest = (socket, action, uri, protocol) => {
-  const { statusCode, status, details } = createResponseForUri(action, uri, protocol);
+const parseHeaders = (rawHeaders) => {
+  const requestHeaders = {};
+  rawHeaders.forEach((rawheader) => {
+    const [header, value] = rawheader.trim().split(': ');
+    requestHeaders[header] = value;
+  });
 
-  const response = `HTTP/1.1 ${statusCode} ${status}\n\n${details}\n`;
-  socket.write(response);
-  socket.end();
+  return requestHeaders;
 };
 
 const parseRequest = (data) => {
-  return data.split('\r')[0].split(' ');
+  const [requestLine, ...rawHeaders] = data.split('\r\n');
+  const [action, uri, protocol] = requestLine.split(' ');
+  const headers = parseHeaders(rawHeaders);
+  return { action, uri, protocol, headers };
+};
+
+const isInvalidUri = (uri) => !RESPONSES.has(uri);
+const isInvalidMethod = (method) => method.trim() !== 'GET';
+const isInvalidProtocol = (protocol) => protocol.trim().toUpperCase() !== 'HTTP/1.1';
+const hasNoMentionOfUserAgent = (headers) => !('User-Agent' in headers);
+
+const createResponseForUri = ({ action, uri, protocol, headers }) => {
+  if (hasNoMentionOfUserAgent(headers) || isInvalidProtocol(protocol))
+    return badRequest(headers);
+
+  if (isInvalidMethod(action)) return invalidMethod();
+
+  if (hasPathComponent(uri)) return pathComponentsArePresent(uri);
+
+  return isInvalidUri(uri) ? invalidUri(uri) : RESPONSES.get(uri);
+};
+
+const formatResponse = ({ statusCode, status, details }) =>
+  `HTTP/1.1 ${statusCode} ${status}\r\n${getTimeStamp()}\r\n\r\n${details}`;
+
+const handleRequest = (socket, request) => {
+  const response = createResponseForUri(request);
+  socket.write(formatResponse(response));
+  socket.end();
 };
 
 const initiateServer = (server) => {
   server.on('connection', (socket) => {
     socket.setEncoding('utf-8');
-
-    socket.on('data', (data) => {
-      const request = parseRequest(data);
-      handleRequest(socket, ...request);
+    socket.on('data', (rawRequest) => {
+      const request = parseRequest(rawRequest);
+      handleRequest(socket, request);
     });
   });
 };
