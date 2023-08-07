@@ -1,6 +1,6 @@
 const parseHeaders = (rawHeaders) => {
   const headers = rawHeaders.map((header) => header.split(': '));
-  return Object.fromEntries(headers) || {};
+  return Object.fromEntries(headers);
 };
 
 const parseRequest = (httpRequest) => {

@@ -10,7 +10,6 @@ const initiateServer = (server) => {
 
     socket.on('data', (rawRequest) => {
       const requestInfo = parseRequest(rawRequest);
-      console.log(requestInfo);
       const request = new Request(requestInfo);
       const response = new Response('HTTP/1.1', socket);
       const requestHandler = new RequestHandler(request, response);

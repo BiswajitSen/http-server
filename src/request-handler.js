@@ -9,62 +9,57 @@ class RequestHandler {
     this.#response = response;
   }
 
-  #sendBadRequestResponse() {
-    this.#response.setStatus(400);
-    this.#response.setContent('bad request');
-    this.#response.end();
-  }
-
-  #sendInvalidMethodResponse() {
-    this.#response.setStatus(405);
-    this.#response.setContent('Method not allowed');
-    this.#response.end();
-  }
-
-  #sendInvalidUriResponse() {
-    this.#response.setStatus(404);
-    this.#response.setContent(`${this.#request.uri} not found`);
-    this.#response.end();
-  }
-
-  #sendHasPathComponentsResponse() {
-    this.#response.setStatus(200);
-    this.#response.setContent(this.#request.extractPathComponents().join('/'));
-    this.#response.end();
-  }
-
-  #sendUriResponse() {
-    console.log(this.#request.uri);
-    console.log(ROUTES.get(this.#request.uri));
-    const { statusCode, content } = ROUTES.get(this.#request.uri);
+  #sendResponse(statusCode, content) {
     this.#response.setStatus(statusCode);
     this.#response.setContent(content);
     this.#response.end();
   }
 
-  createUriResponse = () => {
-    if (!this.#request.hasHTTPUserAgent() || !this.#request.isValidProtocol()) {
-      this.#sendBadRequestResponse();
+  sendBadRequestResponse() {
+    this.#sendResponse(400, 'Bad #request');
+  }
+
+  sendInvalidMethodResponse() {
+    this.#sendResponse(405, 'Method not allowed');
+  }
+
+  sendInvalidUriResponse() {
+    this.#sendResponse(404, `${this.#request.uri} not found`);
+  }
+
+  sendHasPathComponentsResponse() {
+    this.#sendResponse(200, this.#request.extractPathComponents().join('/'));
+  }
+
+  sendUriResponse() {
+    const route = ROUTES.get(this.#request.uri);
+    if (!route) {
+      this.sendInvalidUriResponse();
+      return;
+    }
+
+    const { statusCode, content } = route;
+    this.#sendResponse(statusCode, content);
+  }
+
+  createUriResponse() {
+    if (!this.#request.hasHeader('User-Agent') || !this.#request.isValidProtocol()) {
+      this.sendBadRequestResponse();
       return;
     }
 
     if (!this.#request.isValidMethod()) {
-      this.#sendInvalidMethodResponse();
+      this.sendInvalidMethodResponse();
       return;
     }
 
     if (this.#request.hasPathComponent()) {
-      this.#sendHasPathComponentsResponse();
+      this.sendHasPathComponentsResponse();
       return;
     }
 
-    if (!this.#request.isValidUri()) {
-      this.#sendInvalidUriResponse();
-      return;
-    }
-
-    this.#sendUriResponse();
-  };
+    this.sendUriResponse();
+  }
 }
 
 module.exports = {

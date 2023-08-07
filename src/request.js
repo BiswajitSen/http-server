@@ -40,6 +40,10 @@ class Request {
   hasHTTPUserAgent() {
     return 'User-Agent' in this.#headers;
   }
+
+  hasHeader(headerName) {
+    return headerName in this.#headers;
+  }
 }
 
 module.exports = {

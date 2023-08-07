@@ -13,9 +13,9 @@ class Response {
   #setStatusMessage(statusCode) {
     const statusMessages = {
       200: 'OK',
-      405: 'METHOD_NOT_ALLOWED',
       400: 'BAD_REQUEST',
       404: 'NOT_FOUND',
+      405: 'METHOD_NOT_ALLOWED',
     };
 
     this.#statusMessage = statusMessages[statusCode];
